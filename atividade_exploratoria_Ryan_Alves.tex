@@ -1,0 +1,350 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{indentfirst}
+\usepackage{xcolor}
+
+\geometry{margin=2.5cm}
+
+\title{Atividade Exploratória:\\Engenharia de Atributos, Desbalanceamento e Comparação de Classificadores\\[0.5em]
+\large Reconhecimento de Padrões --- INPE}
+\author{Ryan Alves de Quadros}
+\date{Abril de 2026}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================================
+% ATIVIDADE 1
+% ============================================================================
+\section*{Atividade 1 --- Normalização e Padronização de Atributos}
+\addcontentsline{toc}{section}{Atividade 1 --- Normalização e Padronização}
+
+\subsection*{1.1 O Espaço de Atributos e o Problema das Escalas}
+
+Em Reconhecimento de Padrões, cada amostra é um ponto em $\mathbb{R}^d$, onde cada dimensão corresponde a um atributo. A distância Euclidiana entre duas amostras $\mathbf{x}_i$ e $\mathbf{x}_j$ é:
+%
+\begin{equation}
+    d(\mathbf{x}_i, \mathbf{x}_j) = \sqrt{\sum_{k=1}^{d}(x_{ik} - x_{jk})^2}
+\end{equation}
+
+Quando os atributos possuem escalas distintas, os termos de maior magnitude dominam a soma e distorcem a geometria do espaço. Algoritmos baseados em distância (KNN, K-Means, SVM), em gradiente (redes neurais, regressão logística) e em variância (PCA) são diretamente afetados por essa distorção. As técnicas de normalização e padronização existem para corrigir esse desequilíbrio.
+
+\subsection*{1.2 Padronização (Z-Score)}
+
+A padronização transforma cada atributo $X_k$ para que tenha média zero e desvio padrão unitário:
+%
+\begin{equation}
+    z_{ik} = \frac{x_{ik} - \mu_k}{\sigma_k}
+\end{equation}
+
+\noindent onde $\mu_k$ é a média e $\sigma_k$ o desvio padrão do atributo $k$.
+
+Geometricamente, a subtração da média é uma \textbf{translação} que centraliza a nuvem de pontos na origem, e a divisão pelo desvio padrão é um \textbf{reescalonamento} que iguala a dispersão em todos os eixos. O resultado é uma nuvem aproximadamente \textbf{isotrópica} --- mais próxima de uma esfera do que de um elipsóide alongado.
+
+\textbf{Recomendada quando:}
+\begin{itemize}[nosep]
+    \item O algoritmo é sensível à variância dos atributos (PCA, LDA, regressão com regularização);
+    \item São utilizados métodos baseados em gradiente (a superfície de custo se torna mais esférica, acelerando a convergência);
+    \item Os dados possuem distribuição aproximadamente gaussiana;
+    \item Os atributos têm unidades de medida distintas e deseja-se colocá-los em escala adimensional comparável.
+\end{itemize}
+
+\subsection*{1.3 Normalização Min-Max}
+
+A normalização Min-Max reescala cada atributo para o intervalo $[0, 1]$:
+%
+\begin{equation}
+    x'_{ik} = \frac{x_{ik} - \min(X_k)}{\max(X_k) - \min(X_k)}
+\end{equation}
+
+Geometricamente, essa transformação mapeia a nuvem de pontos para um \textbf{hipercubo unitário} $[0,1]^d$. Cada eixo é transladado e reescalado de modo que o menor valor vá para 0 e o maior para 1. Diferentemente da padronização, não centraliza os dados na origem e não iguala variâncias.
+
+\textbf{Recomendada quando:}
+\begin{itemize}[nosep]
+    \item Redes neurais com funções de ativação limitadas (sigmoide, tanh) --- valores em $[0,1]$ evitam saturação;
+    \item O algoritmo requer entradas em intervalo fixo (processamento de imagens, modelos probabilísticos);
+    \item Os dados não seguem distribuição gaussiana ou possuem limites naturais bem definidos;
+    \item Não há \textit{outliers} significativos --- um único valor extremo comprime todos os demais em uma faixa estreita.
+\end{itemize}
+
+\subsection*{1.4 Resumo Comparativo}
+
+\begin{table}[H]
+\centering
+\caption{Comparação entre Z-Score e Min-Max.}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Critério} & \textbf{Z-Score} & \textbf{Min-Max} \\
+\midrule
+Centraliza na origem & Sim & Não \\
+Intervalo fixo de saída & Não & $[0, 1]$ \\
+Sensível a \textit{outliers} & Moderada & Alta \\
+Iguala variâncias & Sim & Não \\
+Geometria resultante & Nuvem isotrópica & Hipercubo unitário \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{1.5 Experimentação com a Base Wine}
+
+A base \textit{Wine Dataset} do \texttt{scikit-learn} contém 178 amostras, 13 atributos numéricos e 3 classes de vinhos. Os atributos possuem escalas bastante heterogêneas: por exemplo, \textit{proline} varia na ordem de centenas, enquanto \textit{nonflavanoid\_phenols} varia entre 0 e 1. Essa disparidade de escalas torna a base ideal para ilustrar os efeitos da normalização e padronização.
+
+A Figura~\ref{fig:boxplot_original} mostra a disparidade de escalas entre os 13 atributos da base Wine nos dados originais.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{boxplot_original.png}
+    \caption{Boxplot dos atributos originais --- escalas heterogêneas.}
+    \label{fig:boxplot_original}
+\end{figure}
+
+A Figura~\ref{fig:boxplots_comparacao} compara os boxplots dos atributos antes e após a aplicação de cada técnica de pré-processamento.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{boxplots_comparacao.png}
+    \caption{Boxplots comparativos: dados originais, Z-Score, Min-Max e Robust Scaling.}
+    \label{fig:boxplots_comparacao}
+\end{figure}
+
+A Figura~\ref{fig:dispersao} apresenta gráficos de dispersão do par \textit{proline} $\times$ \textit{nonflavanoid\_phenols} --- dois atributos com escalas extremamente diferentes --- antes e após cada transformação, com aspecto igual nos eixos para evidenciar a distorção geométrica.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{dispersao_proline_nonflavanoid.png}
+    \caption{Dispersão de \textit{proline} vs \textit{nonflavanoid\_phenols} sob diferentes pré-processamentos.}
+    \label{fig:dispersao}
+\end{figure}
+
+A Figura~\ref{fig:pares} expande a análise para outros pares de atributos, permitindo verificar que o efeito de equalização de escalas é consistente.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{dispersao_multiplos_pares.png}
+    \caption{Dispersão de múltiplos pares de atributos sob cada transformação.}
+    \label{fig:pares}
+\end{figure}
+
+A Figura~\ref{fig:histogramas} mostra a distribuição do atributo \textit{proline} por classe, evidenciando que as transformações alteram escala e posição, mas preservam a forma da distribuição.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{histogramas_proline.png}
+    \caption{Histogramas do atributo \textit{proline} por classe, antes e após cada transformação.}
+    \label{fig:histogramas}
+\end{figure}
+
+\subsubsection*{Discussão dos Resultados}
+
+Nos dados originais (Figura~\ref{fig:dispersao}, quadro superior esquerdo), o eixo de \textit{proline} (escala $\sim$300--1700) domina completamente a dispersão, enquanto a variação de \textit{nonflavanoid\_phenols} ($\sim$0,1--0,7) é praticamente invisível. Os pontos ficam ``achatados'' em uma faixa horizontal, demonstrando a anisotropia causada pela diferença de escalas.
+
+Após a padronização Z-Score, ambos os eixos passam a ter variância $\approx 1$ e média $\approx 0$. A nuvem de pontos se torna isotrópica e as três classes ficam visualmente mais distinguíveis. Após a normalização Min-Max, ambos os eixos ficam em $[0,1]$, com efeito visual similar, porém sem centralização na origem. A normalização robusta produz resultado próximo ao Z-Score, com a vantagem de ser menos sensível a \textit{outliers}.
+
+Os histogramas (Figura~\ref{fig:histogramas}) confirmam que nenhuma das técnicas altera a forma da distribuição --- apenas a escala e a posição são modificadas. Isso é esperado, pois todas são transformações lineares (ou afins) aplicadas atributo a atributo.
+
+
+% ============================================================================
+% ATIVIDADE 2
+% ============================================================================
+\newpage
+\section*{Atividade 2 --- Desbalanceamento de Dados}
+\addcontentsline{toc}{section}{Atividade 2 --- Desbalanceamento de Dados}
+
+\subsection*{2.1 O que Caracteriza um Conjunto Desbalanceado}
+
+Um conjunto de dados é \textbf{desbalanceado} quando a distribuição de amostras entre as classes é significativamente desigual. Por exemplo, em um problema binário com 1.000 amostras, se 950 pertencem à classe A e apenas 50 à classe B, o conjunto é desbalanceado com razão 19:1.
+
+Essa condição é frequente em problemas reais: detecção de fraudes (fraudes são raras), diagnóstico de doenças raras, detecção de falhas em sistemas industriais, entre outros. O problema central é que um classificador pode atingir alta acurácia simplesmente prevendo a classe majoritária para todas as amostras, sem de fato aprender a distinguir as classes.
+
+\subsection*{2.2 \textit{Undersampling}}
+
+A estratégia de \textit{undersampling} consiste em \textbf{reduzir} o número de amostras da classe majoritária para equilibrar as proporções.
+
+\textbf{Riscos e efeitos:}
+\begin{itemize}[nosep]
+    \item \textbf{Perda de informação}: ao remover amostras da classe majoritária, descartam-se dados potencialmente informativos. Regiões do espaço de atributos que estavam representadas podem ficar vazias, prejudicando a capacidade de generalização do modelo.
+    \item \textbf{Aumento da variância}: com menos amostras totais, o modelo se torna mais sensível à composição específica do conjunto de treino, resultando em maior variabilidade entre treinamentos distintos.
+    \item \textbf{Vantagem}: é computacionalmente leve e reduz o tempo de treinamento. Pode ser eficaz quando a classe majoritária possui muita redundância.
+\end{itemize}
+
+\subsection*{2.3 \textit{Oversampling}}
+
+A estratégia de \textit{oversampling} consiste em \textbf{aumentar} o número de amostras da classe minoritária, seja por replicação direta ou por geração sintética (como SMOTE --- \textit{Synthetic Minority Over-sampling Technique}).
+
+\textbf{Riscos e efeitos:}
+\begin{itemize}[nosep]
+    \item \textbf{Overfitting}: a replicação direta de amostras faz o modelo ``decorar'' as instâncias da classe minoritária, reduzindo a generalização.
+    \item \textbf{Amostras sintéticas irrealistas}: métodos como SMOTE geram novas amostras por interpolação entre vizinhos. Se as classes se sobrepõem no espaço de atributos, as amostras sintéticas podem cair em regiões pertencentes à outra classe, introduzindo ruído.
+    \item \textbf{Aumento do custo computacional}: mais amostras aumentam o tempo de treinamento.
+    \item \textbf{Vantagem}: não descarta dados reais. Quando bem aplicado (e.g., SMOTE combinado com limpeza de fronteira), pode melhorar significativamente a sensibilidade à classe minoritária.
+\end{itemize}
+
+
+% ============================================================================
+% ATIVIDADE 3
+% ============================================================================
+\newpage
+\section*{Atividade 3 --- Comparação de Classificadores na Base Wine}
+\addcontentsline{toc}{section}{Atividade 3 --- Comparação de Classificadores}
+
+\subsection*{3.1 Métodos Escolhidos}
+
+Para esta comparação, foram selecionados dois classificadores:
+\begin{itemize}[nosep]
+    \item \textbf{Gaussian Naive Bayes} (GNB): representante da Teoria da Decisão de Bayes. Assume independência condicional entre atributos e distribuição gaussiana para cada classe. A decisão é tomada pela regra de Bayes: $\hat{y} = \arg\max_c \; P(c) \prod_{k=1}^{d} P(x_k \mid c)$.
+    \item \textbf{Classificador Linear} implementado em PyTorch (\texttt{nn.Linear}): representante dos métodos lineares. Aplica a transformação $\mathbf{y} = W\mathbf{x} + \mathbf{b}$ e é treinado com \textit{Cross-Entropy Loss} via gradiente descendente (SGD, 500 épocas). A fronteira de decisão entre classes é um hiperplano.
+\end{itemize}
+
+A base Wine foi dividida em 70\% treino (124 amostras) e 30\% teste (54 amostras) com estratificação.
+
+\subsection*{3.2 Efeito da Normalização e Padronização}
+
+Os dois classificadores foram avaliados em três cenários de pré-processamento, aplicados separadamente (nunca simultaneamente). O \textit{scaler} é ajustado (\texttt{fit}) apenas no treino e aplicado (\texttt{transform}) em treino e teste, evitando vazamento de informação.
+
+\begin{table}[H]
+\centering
+\caption{Acurácia (\%) dos classificadores sob diferentes pré-processamentos.}
+\label{tab:ativ3_normpad}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Classificador} & \textbf{Sem tratamento} & \textbf{Z-Score} & \textbf{Min-Max} \\
+\midrule
+Naive Bayes Gaussiano  & 100,00 & 100,00 & 100,00 \\
+Linear (PyTorch)       &  51,85 &  96,30 &  92,59 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A Figura~\ref{fig:confusao_linear} apresenta as matrizes de confusão do classificador linear, evidenciando os erros de classificação em cada cenário.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{confusao_linear.png}
+    \caption{Matrizes de confusão do classificador linear sob cada pré-processamento.}
+    \label{fig:confusao_linear}
+\end{figure}
+
+A Figura~\ref{fig:confusao_nb} apresenta as matrizes de confusão do Naive Bayes nos mesmos cenários. A diagonal completamente preenchida confirma os 100\% de acurácia.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{confusao_nb.png}
+    \caption{Matrizes de confusão do Naive Bayes sob cada pré-processamento.}
+    \label{fig:confusao_nb}
+\end{figure}
+
+Para visualizar as predições no espaço de atributos, os 13 atributos foram reduzidos a 2 dimensões via PCA (\textit{Principal Component Analysis}). A Figura~\ref{fig:pca_linear} mostra as predições do classificador linear --- erros são destacados com círculos vermelhos. Sem tratamento, o PC1 concentra 99,9\% da variância (dominado pelo \textit{proline}), e o modelo erra 26 das 54 amostras. Com Z-Score, a variância se distribui melhor entre os componentes e os erros caem para 2.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{pca_dispersao_linear.png}
+    \caption{Dispersão PCA 2D --- predições do classificador linear (erros em vermelho).}
+    \label{fig:pca_linear}
+\end{figure}
+
+A Figura~\ref{fig:pca_nb} mostra as mesmas projeções para o Naive Bayes. Não há círculos vermelhos, confirmando a ausência de erros.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{pca_dispersao_nb.png}
+    \caption{Dispersão PCA 2D --- predições do Naive Bayes (sem erros).}
+    \label{fig:pca_nb}
+\end{figure}
+
+A Figura~\ref{fig:barras_preproc} resume visualmente a acurácia dos dois métodos.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{comparacao_preprocessamento.png}
+    \caption{Acurácia dos classificadores sob diferentes pré-processamentos.}
+    \label{fig:barras_preproc}
+\end{figure}
+
+\subsubsection*{Discussão}
+
+O \textbf{Naive Bayes} atingiu 100\% de acurácia em todos os cenários. Isso ocorre porque o GNB calcula verossimilhanças gaussianas atributo a atributo de forma independente --- a escala de cada atributo é absorvida pelos parâmetros $\mu_k$ e $\sigma_k$ estimados para cada classe, tornando-o invariante a transformações lineares de escala.
+
+O \textbf{Classificador Linear}, treinado por gradiente descendente, é altamente sensível à escala dos atributos. Sem pré-processamento, a \textit{loss} mal converge em 500 épocas e a acurácia fica em apenas 51,85\% --- o modelo essencialmente prediz uma única classe para quase todas as amostras (Figura~\ref{fig:confusao_linear}). Com Z-Score, a superfície de custo se torna mais isotrópica, o gradiente converge rapidamente e a acurácia sobe para 96,30\%. Com Min-Max, o resultado é similar (92,59\%), porém ligeiramente inferior.
+
+O melhor pré-processamento identificado foi a \textbf{padronização Z-Score}, com acurácia média de 98,15\% entre os dois métodos.
+
+\subsection*{3.3 Efeito do Desbalanceamento Artificial}
+
+Para avaliar o impacto do desbalanceamento, o conjunto de treinamento foi artificialmente ajustado para a proporção \textbf{60\%-25\%-15\%} entre as classes 0, 1 e 2, respectivamente. O conjunto de teste permaneceu inalterado. Utilizou-se a padronização Z-Score (melhor pré-processamento identificado).
+
+Foram comparadas três estratégias:
+\begin{itemize}[nosep]
+    \item \textbf{Desbalanceado}: treino com proporções 60-25-15\% sem correção;
+    \item \textbf{+ Undersampling} (\texttt{RandomUnderSampler}): reduz a classe majoritária ao tamanho da minoritária;
+    \item \textbf{+ Oversampling} (SMOTE): gera amostras sintéticas para as classes minoritárias por interpolação entre vizinhos.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Acurácia (\%) sob desbalanceamento artificial (treino: 60-25-15\%).}
+\label{tab:ativ3_desbal}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Classificador} & \textbf{Desbalanceado} & \textbf{+ Undersampling} & \textbf{+ Oversampling} \\
+\midrule
+Naive Bayes Gaussiano  & 100,00 & 98,15 & 98,15 \\
+Linear (PyTorch)       &  96,30 & 96,30 & 96,30 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{comparacao_desbalanceamento.png}
+    \caption{Efeito do desbalanceamento e técnicas de balanceamento na acurácia.}
+    \label{fig:barras_desbal}
+\end{figure}
+
+\subsubsection*{Discussão}
+
+O \textbf{Naive Bayes} manteve acurácia de 100\% no cenário desbalanceado, demonstrando robustez ao desequilíbrio de classes --- resultado esperado, pois o GNB estima parâmetros por classe de forma independente. Com \textit{undersampling} e \textit{oversampling}, a acurácia caiu ligeiramente para 98,15\%, possivelmente porque a redução ou geração sintética de amostras alterou as distribuições estimadas para cada classe.
+
+O \textbf{Classificador Linear} manteve 96,30\% em todos os cenários de balanceamento. Para este dataset relativamente simples e bem separável (com Z-Score), o desbalanceamento moderado (60-25-15\%) não foi suficiente para degradar significativamente o desempenho. Em problemas com maior sobreposição de classes ou desbalanceamento mais extremo (e.g., 95-4-1\%), espera-se que as técnicas de balanceamento tenham impacto mais expressivo.
+
+De modo geral, a base Wine, por ser relativamente pequena e bem separável, não evidencia grandes diferenças entre as estratégias de balanceamento. Ambos os classificadores mantiveram desempenho elevado, indicando que as fronteiras de decisão são bem definidas mesmo sob desbalanceamento moderado.
+
+
+% ============================================================================
+% REFERÊNCIAS
+% ============================================================================
+\newpage
+\begin{thebibliography}{9}
+
+\bibitem{bishop2006}
+BISHOP, C. M. \textit{Pattern Recognition and Machine Learning}. New York: Springer, 2006.
+
+\bibitem{hastie2009}
+HASTIE, T.; TIBSHIRANI, R.; FRIEDMAN, J. \textit{The Elements of Statistical Learning}. 2. ed. New York: Springer, 2009.
+
+\bibitem{sklearn}
+PEDREGOSA, F. et al. Scikit-learn: Machine Learning in Python. \textit{Journal of Machine Learning Research}, v. 12, p. 2825--2830, 2011.
+
+\bibitem{geron2019}
+GÉRON, A. \textit{Hands-On Machine Learning with Scikit-Learn, Keras, and TensorFlow}. 2. ed. Sebastopol: O'Reilly, 2019.
+
+\bibitem{duda2001}
+DUDA, R. O.; HART, P. E.; STORK, D. G. \textit{Pattern Classification}. 2. ed. New York: Wiley, 2001.
+
+\bibitem{chawla2002}
+CHAWLA, N. V. et al. SMOTE: Synthetic Minority Over-sampling Technique. \textit{Journal of Artificial Intelligence Research}, v. 16, p. 321--357, 2002.
+
+\end{thebibliography}
+
+\end{document}
